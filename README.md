@@ -2,7 +2,6 @@
 
 ![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)
 ![Build](https://img.shields.io/badge/build-passing-brightgreen.svg)
-![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![React](https://img.shields.io/badge/React-18+-61DAFB.svg?logo=react)
 ![Tailwind](https://img.shields.io/badge/TailwindCSS-3+-38BDF8.svg?logo=tailwindcss)
 ![Spring Boot](https://img.shields.io/badge/SpringBoot-3+-6DB33F.svg?logo=springboot)
@@ -123,9 +122,9 @@ Backend runs on:
 
 ## 📈 System Architecture
 ```txt
-+-------------+     HTTP      +--------------+      Database
++-------------+     HTTP      +--------------+      Database    +-------------+
 |  Frontend   | <===========> |   Backend    | <==============> | Notes Table |
-|  (React)    |               | (Spring Boot)|                  | (H2/MySQL) |
+|  (React)    |               | (Spring Boot)|                  | (H2/MySQL)  |
 +-------------+               +--------------+                  +-------------+
 ```
 
