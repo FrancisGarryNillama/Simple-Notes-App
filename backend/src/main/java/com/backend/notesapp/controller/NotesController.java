@@ -2,16 +2,20 @@ package com.backend.notesapp.controller;
 
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
+
 import com.backend.notesapp.models.Note;
 import com.backend.notesapp.dto.NoteRequest;
 import com.backend.notesapp.service.NoteService;
 
 @RestController
 @RequestMapping("/api/notes")
-@CrossOrigin(origins = "http://localhost:3000")
 public class NotesController {
+
     private final NoteService noteService;
-    public NotesController(NoteService ns){ this.noteService = ns; }
+
+    public NotesController(NoteService noteService){
+        this.noteService = noteService;
+    }
 
     @GetMapping
     public List<Note> getByFolder(@RequestParam Integer folderId){
@@ -19,14 +23,22 @@ public class NotesController {
     }
 
     @GetMapping("/{id}")
-    public Note getOne(@PathVariable Integer id) { /* optional */ return noteService.getById(id); }
+    public Note getOne(@PathVariable Integer id) {
+        return noteService.getById(id);
+    }
 
     @PostMapping
-    public Note create(@RequestBody NoteRequest req){ return noteService.create(req); }
+    public Note create(@RequestBody NoteRequest req){
+        return noteService.create(req);
+    }
 
     @PutMapping("/{id}")
-    public Note update(@PathVariable Integer id, @RequestBody NoteRequest req){ return noteService.update(id, req); }
+    public Note update(@PathVariable Integer id, @RequestBody NoteRequest req){
+        return noteService.update(id, req);
+    }
 
     @DeleteMapping("/{id}")
-    public void delete(@PathVariable Integer id){ noteService.delete(id); }
+    public void delete(@PathVariable Integer id){
+        noteService.delete(id);
+    }
 }

@@ -1,29 +1,31 @@
 package com.backend.notesapp.models;
 
-import com.backend.notesapp.models.Folder;
 import jakarta.persistence.*;
-import java.time.LocalDateTime;
-import lombok.*;
+import lombok.Data;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
+import java.time.LocalDateTime;
+
+@Data
 @Entity
 @Table(name = "notes")
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
 public class Note {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "folder_id")
-    private Folder folder;
-
     private String title;
 
     @Column(columnDefinition = "TEXT")
-    private String content;
+    private String description;  // <-- matches frontend + NoteRequest
 
-    @Column(name = "last_saved")
-    private LocalDateTime lastSaved = LocalDateTime.now();
+    private String color;
+
+    private LocalDateTime lastSaved;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "folder_id")
+    @JsonIgnore          // prevents infinite JSON recursion
+    private Folder folder;
 }

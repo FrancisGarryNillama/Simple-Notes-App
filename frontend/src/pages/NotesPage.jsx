@@ -1,181 +1,199 @@
-import { useState, useMemo } from "react";
-import { NoteCard, ErrorModal, Loading } from "../components";
+import React, { useState, useMemo } from "react";
+import { Search, Plus, ArrowLeft, Grid, List } from "lucide-react";
 import useNotes from "../hooks/useNotes";
-import { Search } from "lucide-react";
+import LoadingSpinner from "../components/shared/LoadingSpinner";
+import ErrorAlert from "../components/ui/ErrorAlert";
+import Button from "../components/ui/Button";
+import Input from "../components/ui/Input";
+import Modal from "../components/ui/Modal";
+import NoteCard from "../components/notes/NoteCard";
+import NoteForm from "../components/notes/NoteForm";
+import { NOTE_COLORS } from "../constants/colors";
+import { searchFilter } from "../utils/helpers";
 
-const NOTE_COLORS = [
-  "bg-red-200",
-  "bg-green-200",
-  "bg-blue-200",
-  "bg-yellow-200",
-  "bg-purple-200",
-];
-
-export default function NotesPage() {
-  const { notes, addNote, editNote, removeNote, error, setError, isLoading } = useNotes();
-
+export default function NotesPage({ folderId, folderName, onBack }) {
+  const { notes, isLoading, error, setError, addNote, editNote, removeNote } = useNotes(folderId);
+  
   const [searchTerm, setSearchTerm] = useState("");
-  const [title, setTitle] = useState("");
-  const [content, setContent] = useState("");
-  const [color, setColor] = useState(NOTE_COLORS[0]);
-  const [editingNoteId, setEditingNoteId] = useState(null);
+  const [isModalOpen, setModalOpen] = useState(false);
+  const [editingNote, setEditingNote] = useState(null);
+  const [viewMode, setViewMode] = useState("grid");
+  
+  const [formData, setFormData] = useState({
+    title: "",
+    description: "",
+    color: NOTE_COLORS[0].bg,
+  });
 
   const filteredNotes = useMemo(() => {
-    const q = searchTerm.trim().toLowerCase();
-    if (!q) return notes;
-    return notes.filter((n) => (n.title || "").toLowerCase().includes(q));
+    return searchFilter(notes, searchTerm, ["title", "description"]);
   }, [notes, searchTerm]);
 
-  if (isLoading && notes.length === 0) {
-    return <Loading />;
-  }
-
-  // Handlers
-  const resetForm = () => {
-    setTitle("");
-    setContent("");
-    setColor(NOTE_COLORS[0]);
-    setEditingNoteId(null);
-  };
-
-  const saveNote = async (e) => {
-    e.preventDefault();
-    if (!title.trim() && !content.trim()) return;
-
-    const noteData = { title, description: content, color };
-
-    if (editingNoteId) {
-      await editNote(editingNoteId, noteData);
+  const openModal = (note = null) => {
+    if (note) {
+      setEditingNote(note);
+      setFormData({
+        title: note.title || "",
+        description: note.description || "",
+        color: note.color || NOTE_COLORS[0].bg,
+      });
     } else {
-      await addNote(noteData);
+      setEditingNote(null);
+      setFormData({ title: "", description: "", color: NOTE_COLORS[0].bg });
     }
-
-    resetForm();
+    setModalOpen(true);
   };
 
-  const editNoteHandler = (note) => {
-    setEditingNoteId(note.id);
-    setTitle(note.title || "");
-    setContent(note.description || "");
-    setColor(note.color || NOTE_COLORS[0]);
+  const closeModal = () => {
+    setModalOpen(false);
+    setEditingNote(null);
+    setFormData({ title: "", description: "", color: NOTE_COLORS[0].bg });
   };
 
-  const deleteNoteHandler = async (id) => {
-    await removeNote(id);
+  const handleSave = async () => {
+    if (!formData.title.trim() && !formData.description.trim()) return;
+    
+    try {
+      if (editingNote) {
+        await editNote(editingNote.id, formData);
+      } else {
+        await addNote(formData);
+      }
+      closeModal();
+    } catch (err) {
+      // Error already handled in hook
+    }
   };
+
+  const handleDeleteNote = async (id) => {
+    if (window.confirm("Are you sure you want to delete this note?")) {
+      try {
+        await removeNote(id);
+      } catch (err) {
+        // Error already handled in hook
+      }
+    }
+  };
+
+  if (isLoading && notes.length === 0) return <LoadingSpinner />;
 
   return (
-    <div className="min-h-screen bg-gray-50 font-sans">
-      <ErrorModal
-        show={Boolean(error)}
-        message={error}
-        onClose={() => setError("")}
-      />
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
+      <ErrorAlert message={error} onClose={() => setError("")} />
 
-      <header className="bg-white shadow-md sticky top-0 z-10 p-4">
-        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row justify-between items-center space-y-3 sm:space-y-0">
-          <h1 className="text-3xl font-extrabold text-indigo-600 tracking-tight">
-            TDWB - Notes
-          </h1>
-
-          <div className="relative w-full sm:w-80">
-            <input
-              type="text"
-              placeholder="Search notes by title..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full py-2 pl-10 pr-4 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-indigo-500 transition shadow-sm"
-            />
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+      {/* Header */}
+      <header className="bg-white border-b border-gray-200 sticky top-0 z-40 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={onBack}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                aria-label="Back to folders"
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </button>
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900">{folderName || "Notes"}</h1>
+                <p className="text-gray-600 mt-1">{notes.length} notes</p>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-3 w-full sm:w-auto">
+              <div className="relative flex-1 sm:w-80">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <Input
+                  placeholder="Search notes..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              
+              {/* View Mode Toggle */}
+              <div className="flex gap-2 bg-gray-100 rounded-lg p-1">
+                <button
+                  onClick={() => setViewMode("grid")}
+                  className={`p-2 rounded transition-colors ${
+                    viewMode === "grid" ? "bg-white shadow-sm" : "hover:bg-gray-200"
+                  }`}
+                  aria-label="Grid view"
+                >
+                  <Grid className="w-5 h-5" />
+                </button>
+                <button
+                  onClick={() => setViewMode("list")}
+                  className={`p-2 rounded transition-colors ${
+                    viewMode === "list" ? "bg-white shadow-sm" : "hover:bg-gray-200"
+                  }`}
+                  aria-label="List view"
+                >
+                  <List className="w-5 h-5" />
+                </button>
+              </div>
+              
+              <Button onClick={() => openModal()} className="flex items-center gap-2">
+                <Plus className="w-5 h-5" />
+                <span className="hidden sm:inline">New</span>
+              </Button>
+            </div>
           </div>
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto p-4 sm:p-6">
-        <form
-          onSubmit={saveNote}
-          className="bg-white p-6 rounded-xl shadow-xl mb-10 border-t-4 border-indigo-500"
-        >
-          <h2 className="text-2xl font-bold text-gray-800 mb-4">
-            {editingNoteId ? "Edit Note" : "Add New Note"}
-          </h2>
-
-          <input
-            type="text"
-            placeholder="Title (Optional)"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            className="w-full text-xl font-semibold p-3 mb-4 border-b-2 border-gray-200 focus:border-indigo-500 focus:outline-none transition rounded-t-lg"
-            aria-label="Note Title"
-          />
-
-          <textarea
-            placeholder="Write your note here..."
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            rows="6"
-            className="w-full p-3 mb-4 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 resize-y focus:outline-none transition"
-            aria-label="Note Content"
-          ></textarea>
-
-          <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
-            <div className="flex space-x-2">
-              {NOTE_COLORS.map((c) => (
-                <button
-                  key={c}
-                  type="button"
-                  onClick={() => setColor(c)}
-                  className={`w-8 h-8 rounded-full ${c} shadow-md border-2 transition transform hover:scale-110 ${
-                    color === c ? "border-indigo-600 ring-2 ring-indigo-300" : "border-white"
-                  }`}
-                  title={`Select ${c.split("-")[1]} color`}
-                />
-              ))}
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {filteredNotes.length === 0 ? (
+          <div className="text-center py-16">
+            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Search className="w-8 h-8 text-gray-400" />
             </div>
-
-            <div className="flex space-x-3">
-              {editingNoteId && (
-                <button
-                  type="button"
-                  onClick={resetForm}
-                  className="px-4 py-2 bg-gray-500 text-white font-semibold rounded-lg shadow-md hover:bg-gray-600 transition duration-150"
-                >
-                  Cancel Edit
-                </button>
-              )}
-              <button
-                type="submit"
-                disabled={!editingNoteId && !title.trim() && !content.trim()}
-                className={`px-6 py-2 text-white font-bold rounded-lg shadow-lg transition duration-150 transform ${
-                  !editingNoteId && !title.trim() && !content.trim()
-                    ? "bg-indigo-300 cursor-not-allowed"
-                    : "bg-indigo-600 hover:bg-indigo-700 hover:scale-[1.03]"
-                }`}
-              >
-                {editingNoteId ? "Update Note" : "Save Note"}
-              </button>
-            </div>
-          </div>
-        </form>
-
-        <h2 className="text-2xl font-bold text-gray-800 mb-6 border-b pb-2">
-          {searchTerm ? `Search Results (${filteredNotes.length})` : `Your Notes (${notes.length})`}
-        </h2>
-
-        {filteredNotes.length === 0 && (
-          <div className="text-center p-10 bg-white rounded-xl shadow-inner text-gray-500">
-            <p className="text-lg">
-              {searchTerm ? "We couldn’t find any notes matching that title." : "It looks like you haven’t created a note yet. Start by typing above!"}
+            <h3 className="text-xl font-semibold text-gray-700 mb-2">
+              {searchTerm ? "No notes found" : "No notes yet"}
+            </h3>
+            <p className="text-gray-500 mb-6">
+              {searchTerm ? "Try a different search term" : "Create your first note to get started"}
             </p>
+            {!searchTerm && (
+              <Button onClick={() => openModal()} className="flex items-center gap-2 mx-auto">
+                <Plus className="w-5 h-5" />
+                Create Note
+              </Button>
+            )}
+          </div>
+        ) : (
+          <div className={
+            viewMode === "grid" 
+              ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
+              : "space-y-4"
+          }>
+            {filteredNotes.map((note) => (
+              <NoteCard
+                key={note.id}
+                note={note}
+                onEdit={openModal}
+                onDelete={handleDeleteNote}
+                viewMode={viewMode}
+              />
+            ))}
           </div>
         )}
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {filteredNotes.map((note) => (
-            <NoteCard key={note.id} note={note} onEdit={editNoteHandler} onDelete={deleteNoteHandler} />
-          ))}
-        </div>
       </main>
+
+      {/* Note Modal */}
+      <Modal
+        isOpen={isModalOpen}
+        onClose={closeModal}
+        title={editingNote ? "Edit Note" : "Create Note"}
+      >
+        <NoteForm
+          formData={formData}
+          setFormData={setFormData}
+          onSubmit={handleSave}
+          onCancel={closeModal}
+          isEditing={!!editingNote}
+        />
+      </Modal>
     </div>
   );
 }

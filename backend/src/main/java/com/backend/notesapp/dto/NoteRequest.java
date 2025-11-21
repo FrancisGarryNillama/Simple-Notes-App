@@ -4,8 +4,8 @@ import lombok.Data;
 
 @Data
 public class NoteRequest {
-    private Integer folderId;
     private String title;
-    private String content;
-    // getters & setters
+    private String description; // <-- matches frontend
+    private String color;
+    private Integer folderId;   // <-- required
 }
