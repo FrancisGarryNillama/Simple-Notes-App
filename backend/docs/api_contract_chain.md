@@ -8,7 +8,7 @@ This document defines the backend API endpoints required to support blockchain t
 
 /api/chain
 
-# ## 1) POST `/api/chain/tx`
+## 1) POST `/api/chain/tx`
 
 Insert a blockchain transaction linked to a note.
 
