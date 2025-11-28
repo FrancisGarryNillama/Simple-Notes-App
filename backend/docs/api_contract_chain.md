@@ -1,19 +1,15 @@
-# API Contract — Chain / Wallet Integration
+API Contract — Chain / Wallet Integration
 
 This document defines the backend API endpoints required to support blockchain transaction recording and wallet integration for the Notes App.
 
----
-
-# Base Path
-
+Base Path
 /api/chain
 
-## 1) POST `/api/chain/tx`
+1) POST /api/chain/tx
 
 Insert a blockchain transaction linked to a note.
 
-### **Request Body**
-```json
+Request Body
 {
   "note_id": 12,
   "tx_hash": "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
@@ -22,16 +18,15 @@ Insert a blockchain transaction linked to a note.
   "metadata": { "noteRef": 12, "action": "attach" },
   "external_ref": "optional-provider-id"
 }
-Success Response
 
+Success Response
 { "success": true, "id": 123, "tx_hash": "abcdef..." }
 
-## 2) GET /api/chain/txs?noteId=<id>
+2) GET /api/chain/txs?noteId=<id>
 
 Fetch all blockchain transactions for a specific note.
 
 Success Response
-
 {
   "success": true,
   "transactions": [
@@ -49,7 +44,9 @@ Success Response
     }
   ]
 }
-## 3) POST /api/chain/tx/update
+
+3) POST /api/chain/tx/update
+
 Update a transaction’s status.
 Internal use only.
 
@@ -63,7 +60,7 @@ Request Body
   "block_height": 123456
 }
 
-## 4) GET /api/chain/pending?limit=50
+4) GET /api/chain/pending?limit=50
 
 Return all pending transactions for polling systems.
 
@@ -99,42 +96,48 @@ Backend developer must choose one consistent behavior.
 
 Timestamps must use ISO8601 UTC (e.g., 2025-11-28T12:34:56Z).
 
-For POST /api/chain/tx/update, define whether metadata is merged or replaced.
+For POST /api/chain/tx/update, decide whether metadata is merged or replaced.
+
 Recommended: merge existing + new metadata.
 
-Store all secrets (X-API-KEY, Blockfrost key) in environment variables.
-Never commit secrets to the repository.
+Store all secrets (X-API-KEY, Blockfrost key) in environment variables — never commit them.
 
 Poller jobs must respect Blockfrost rate limits.
 
 Spring-Specific Notes (Important for Backend Developer)
+Metadata Column Type
 
-Metadata Column Type:
 The metadata column is JSON in MySQL.
-If using H2 for local testing, configure JSON → TEXT mapping, or use MySQL only during development.
 
-Enum Mapping:
+If using H2 for local testing, configure JSON→TEXT mapping, or use MySQL during development.
+
+Enum Mapping
+
 SQL ENUM('pending','confirmed','failed') should be mapped to a Java enum or String.
-(Java enum recommended.)
 
-JPA Entity Suggestions:
+Java enum recommended.
+
+JPA Entity Suggestions
+
 Use:
 
 @Enumerated(EnumType.STRING)
 private TxStatus status;
 
 
-And store metadata as:
+Store metadata as:
 
 @Column(columnDefinition = "json")
 private String metadata;
 
+Use @Transactional
 
-Use @Transactional:
 On insert (/tx), use a transactional repository method to avoid duplicate tx_hash race conditions.
 
-Pagination:
+Pagination
+
 Allow optional limit and offset for GET /api/chain/txs.
 
-CORS:
-Enable CORS for the frontend origin while in development.
+CORS
+
+Enable CORS for the frontend origin during development.
