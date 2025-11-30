@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from "react";
-import { Search, Plus, ArrowLeft, Grid, List } from "lucide-react";
+import { Search, Plus, ArrowLeft, Grid, List, Link as LinkIcon } from "lucide-react";
 import useNotes from "../hooks/useNotes";
+import useChainTransactions from "../hooks/useChainTransactions";
 import LoadingSpinner from "../components/shared/LoadingSpinner";
 import ErrorAlert from "../components/ui/ErrorAlert";
 import Button from "../components/ui/Button";
@@ -8,6 +9,8 @@ import Input from "../components/ui/Input";
 import Modal from "../components/ui/Modal";
 import NoteCard from "../components/notes/NoteCard";
 import NoteForm from "../components/notes/NoteForm";
+import TransactionList from "../components/chain/TransactionList";
+import TransactionForm from "../components/chain/TransactionForm";
 import { NOTE_COLORS } from "../constants/colors";
 import { searchFilter } from "../utils/helpers";
 
@@ -18,6 +21,20 @@ export default function NotesPage({ folderId, folderName, onBack }) {
   const [isModalOpen, setModalOpen] = useState(false);
   const [editingNote, setEditingNote] = useState(null);
   const [viewMode, setViewMode] = useState("grid");
+  
+  // Chain/Blockchain state
+  const [chainModalOpen, setChainModalOpen] = useState(false);
+  const [selectedNoteForChain, setSelectedNoteForChain] = useState(null);
+  const [showTransactionForm, setShowTransactionForm] = useState(false);
+  
+  const { 
+    transactions, 
+    isLoading: txLoading, 
+    error: txError, 
+    setError: setTxError,
+    addTransaction,
+    reloadTransactions
+  } = useChainTransactions(selectedNoteForChain?.id);
   
   const [formData, setFormData] = useState({
     title: "",
@@ -75,6 +92,30 @@ export default function NotesPage({ folderId, folderName, onBack }) {
     }
   };
 
+  // Chain functions
+  const handleViewChain = (note) => {
+    setSelectedNoteForChain(note);
+    setChainModalOpen(true);
+    setShowTransactionForm(false);
+  };
+
+  const handleCloseChainModal = () => {
+    setChainModalOpen(false);
+    setSelectedNoteForChain(null);
+    setShowTransactionForm(false);
+    setTxError("");
+  };
+
+  const handleCreateTransaction = async (txData) => {
+    try {
+      await addTransaction(txData);
+      setShowTransactionForm(false);
+      reloadTransactions();
+    } catch (err) {
+      // Error handled in hook
+    }
+  };
+
   if (isLoading && notes.length === 0) return <LoadingSpinner />;
 
   return (
@@ -110,7 +151,6 @@ export default function NotesPage({ folderId, folderName, onBack }) {
                 />
               </div>
               
-              {/* View Mode Toggle */}
               <div className="flex gap-2 bg-gray-100 rounded-lg p-1">
                 <button
                   onClick={() => setViewMode("grid")}
@@ -173,6 +213,7 @@ export default function NotesPage({ folderId, folderName, onBack }) {
                 note={note}
                 onEdit={openModal}
                 onDelete={handleDeleteNote}
+                onViewChain={handleViewChain}
                 viewMode={viewMode}
               />
             ))}
@@ -193,6 +234,48 @@ export default function NotesPage({ folderId, folderName, onBack }) {
           onCancel={closeModal}
           isEditing={!!editingNote}
         />
+      </Modal>
+
+      {/* Chain/Blockchain Modal */}
+      <Modal
+        isOpen={chainModalOpen}
+        onClose={handleCloseChainModal}
+        title={`Blockchain Transactions - ${selectedNoteForChain?.title || 'Untitled'}`}
+      >
+        <div className="space-y-4">
+          {txError && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+              {txError}
+            </div>
+          )}
+
+          {!showTransactionForm ? (
+            <>
+              <div className="flex justify-between items-center mb-4">
+                <h4 className="font-semibold text-gray-900">Transactions</h4>
+                <Button
+                  size="sm"
+                  onClick={() => setShowTransactionForm(true)}
+                  className="flex items-center gap-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Transaction
+                </Button>
+              </div>
+
+              <TransactionList transactions={transactions} isLoading={txLoading} />
+            </>
+          ) : (
+            <>
+              <h4 className="font-semibold text-gray-900 mb-4">New Transaction</h4>
+              <TransactionForm
+                noteId={selectedNoteForChain?.id}
+                onSubmit={handleCreateTransaction}
+                onCancel={() => setShowTransactionForm(false)}
+              />
+            </>
+          )}
+        </div>
       </Modal>
     </div>
   );
