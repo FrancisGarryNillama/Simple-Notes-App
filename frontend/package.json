@@ -10,12 +10,21 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@blaze-cardano/sdk": "^0.2.44",
+    "@esbuild-plugins/node-globals-polyfill": "^0.2.3",
+    "@esbuild-plugins/node-modules-polyfill": "^0.2.2",
     "@tailwindcss/vite": "^4.1.17",
     "axios": "^1.13.2",
+    "buffer": "^6.0.3",
+    "events": "^3.3.0",
     "lucide-react": "^0.554.0",
+    "path-browserify": "^1.0.1",
+    "process": "^0.11.10",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
-    "react-router-dom": "^7.9.6"
+    "react-router-dom": "^7.9.6",
+    "stream-browserify": "^3.0.0",
+    "util": "^0.12.5"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",

@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from "react";
-import { Search, Plus, ArrowLeft, Grid, List, Link as LinkIcon } from "lucide-react";
+import { Search, Plus, ArrowLeft, Grid, List, Send } from "lucide-react";
 import useNotes from "../hooks/useNotes";
-import useChainTransactions from "../hooks/useChainTransactions";
+import useCardanoWallet from "../hooks/useCardanoWallet";
+import { createTransaction } from "../services/api/chainApi";
 import LoadingSpinner from "../components/shared/LoadingSpinner";
 import ErrorAlert from "../components/ui/ErrorAlert";
 import Button from "../components/ui/Button";
@@ -9,8 +10,9 @@ import Input from "../components/ui/Input";
 import Modal from "../components/ui/Modal";
 import NoteCard from "../components/notes/NoteCard";
 import NoteForm from "../components/notes/NoteForm";
-import TransactionList from "../components/chain/TransactionList";
-import TransactionForm from "../components/chain/TransactionForm";
+import WalletConnect from "../components/wallet/WalletConnect";
+import SendTransactionForm from "../components/wallet/SendTransactionForm";
+import TransactionSuccess from "../components/wallet/TransactionSuccess";
 import { NOTE_COLORS } from "../constants/colors";
 import { searchFilter } from "../utils/helpers";
 
@@ -22,19 +24,21 @@ export default function NotesPage({ folderId, folderName, onBack }) {
   const [editingNote, setEditingNote] = useState(null);
   const [viewMode, setViewMode] = useState("grid");
   
-  // Chain/Blockchain state
-  const [chainModalOpen, setChainModalOpen] = useState(false);
-  const [selectedNoteForChain, setSelectedNoteForChain] = useState(null);
-  const [showTransactionForm, setShowTransactionForm] = useState(false);
-  
-  const { 
-    transactions, 
-    isLoading: txLoading, 
-    error: txError, 
-    setError: setTxError,
-    addTransaction,
-    reloadTransactions
-  } = useChainTransactions(selectedNoteForChain?.id);
+  // Wallet state
+  const {
+    wallets,
+    isConnected,
+    walletAddress,
+    error: walletError,
+    loading: walletLoading,
+    connectWallet,
+    disconnectWallet,
+    sendTransaction,
+  } = useCardanoWallet();
+
+  const [showWalletModal, setShowWalletModal] = useState(false);
+  const [selectedNoteForTx, setSelectedNoteForTx] = useState(null);
+  const [txSuccess, setTxSuccess] = useState(null);
   
   const [formData, setFormData] = useState({
     title: "",
@@ -92,27 +96,44 @@ export default function NotesPage({ folderId, folderName, onBack }) {
     }
   };
 
-  // Chain functions
-  const handleViewChain = (note) => {
-    setSelectedNoteForChain(note);
-    setChainModalOpen(true);
-    setShowTransactionForm(false);
+  // Wallet functions
+  const handleSendTransaction = (note) => {
+    setSelectedNoteForTx(note);
+    setShowWalletModal(true);
+    setTxSuccess(null);
   };
 
-  const handleCloseChainModal = () => {
-    setChainModalOpen(false);
-    setSelectedNoteForChain(null);
-    setShowTransactionForm(false);
-    setTxError("");
+  const handleCloseWalletModal = () => {
+    setShowWalletModal(false);
+    setSelectedNoteForTx(null);
+    setTxSuccess(null);
   };
 
-  const handleCreateTransaction = async (txData) => {
+  const handleTransactionSubmit = async (txData) => {
     try {
-      await addTransaction(txData);
-      setShowTransactionForm(false);
-      reloadTransactions();
+      // Send transaction via Cardano wallet
+      const result = await sendTransaction(
+        txData.recipient,
+        txData.amount,
+        txData.noteData
+      );
+
+      // Save to backend database
+      const dbPayload = {
+        note_id: selectedNoteForTx.id,
+        tx_hash: result.txHash,
+        amount: txData.amount / 1_000_000, // Convert Lovelace to ADA
+        currency: 'ADA',
+        metadata: txData.noteData || {},
+        external_ref: walletAddress,
+      };
+
+      await createTransaction(dbPayload);
+
+      setTxSuccess(result.txHash);
     } catch (err) {
-      // Error handled in hook
+      console.error('Transaction failed:', err);
+      throw err;
     }
   };
 
@@ -120,7 +141,9 @@ export default function NotesPage({ folderId, folderName, onBack }) {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
-      <ErrorAlert message={error} onClose={() => setError("")} />
+      <ErrorAlert message={error || walletError} onClose={() => {
+        setError("");
+      }} />
 
       {/* Header */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-40 shadow-sm">
@@ -208,14 +231,21 @@ export default function NotesPage({ folderId, folderName, onBack }) {
               : "space-y-4"
           }>
             {filteredNotes.map((note) => (
-              <NoteCard
-                key={note.id}
-                note={note}
-                onEdit={openModal}
-                onDelete={handleDeleteNote}
-                onViewChain={handleViewChain}
-                viewMode={viewMode}
-              />
+              <div key={note.id} className="relative">
+                <NoteCard
+                  note={note}
+                  onEdit={openModal}
+                  onDelete={handleDeleteNote}
+                  viewMode={viewMode}
+                />
+                <button
+                  onClick={() => handleSendTransaction(note)}
+                  className="absolute bottom-3 right-3 p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors shadow-lg"
+                  title="Send transaction with this note"
+                >
+                  <Send className="w-4 h-4" />
+                </button>
+              </div>
             ))}
           </div>
         )}
@@ -236,43 +266,42 @@ export default function NotesPage({ folderId, folderName, onBack }) {
         />
       </Modal>
 
-      {/* Chain/Blockchain Modal */}
+      {/* Wallet & Transaction Modal */}
       <Modal
-        isOpen={chainModalOpen}
-        onClose={handleCloseChainModal}
-        title={`Blockchain Transactions - ${selectedNoteForChain?.title || 'Untitled'}`}
+        isOpen={showWalletModal}
+        onClose={handleCloseWalletModal}
+        title={txSuccess ? "Transaction Successful" : "Send Transaction"}
       >
-        <div className="space-y-4">
-          {txError && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
-              {txError}
-            </div>
-          )}
-
-          {!showTransactionForm ? (
-            <>
-              <div className="flex justify-between items-center mb-4">
-                <h4 className="font-semibold text-gray-900">Transactions</h4>
-                <Button
-                  size="sm"
-                  onClick={() => setShowTransactionForm(true)}
-                  className="flex items-center gap-2"
-                >
-                  <Plus className="w-4 h-4" />
-                  Add Transaction
-                </Button>
-              </div>
-
-              <TransactionList transactions={transactions} isLoading={txLoading} />
-            </>
+        <div className="space-y-6">
+          {txSuccess ? (
+            <TransactionSuccess
+              txHash={txSuccess}
+              onClose={handleCloseWalletModal}
+            />
           ) : (
             <>
-              <h4 className="font-semibold text-gray-900 mb-4">New Transaction</h4>
-              <TransactionForm
-                noteId={selectedNoteForChain?.id}
-                onSubmit={handleCreateTransaction}
-                onCancel={() => setShowTransactionForm(false)}
+              <WalletConnect
+                wallets={wallets}
+                isConnected={isConnected}
+                walletAddress={walletAddress}
+                onConnect={connectWallet}
+                onDisconnect={disconnectWallet}
+                loading={walletLoading}
               />
+
+              {isConnected && selectedNoteForTx && (
+                <div className="pt-4 border-t border-gray-200">
+                  <h4 className="font-semibold text-gray-900 mb-4">
+                    Send ADA with Note: {selectedNoteForTx.title || 'Untitled'}
+                  </h4>
+                  <SendTransactionForm
+                    note={selectedNoteForTx}
+                    onSubmit={handleTransactionSubmit}
+                    onCancel={handleCloseWalletModal}
+                    loading={walletLoading}
+                  />
+                </div>
+              )}
             </>
           )}
         </div>

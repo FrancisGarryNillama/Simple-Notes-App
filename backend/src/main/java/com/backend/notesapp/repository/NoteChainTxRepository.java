@@ -14,4 +14,9 @@ public interface NoteChainTxRepository extends JpaRepository<NoteChainTx, Intege
     Optional<NoteChainTx> findByTxHash(String txHash);
 
     List<NoteChainTx> findByStatusOrderByCreatedAtAsc(TxStatus status);
+
+    // Additional methods for statistics
+    long countByStatus(TxStatus status);
+
+    List<NoteChainTx> findByUserId(Integer userId);
 }
